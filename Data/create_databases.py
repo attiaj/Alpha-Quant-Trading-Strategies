@@ -32,13 +32,16 @@ def get_rates(symbol, number_of_data=10_000, timeframe=mt5.TIMEFRAME_D1):
     return df_rates
 
 # !! You can't import more than 99.999 rows in one request
-df = get_rates("AUDUSD-Z", number_of_data=30_000, timeframe=mt5.TIMEFRAME_H4)
+df = get_rates("GBPUSD", number_of_data=99_999, timeframe=mt5.TIMEFRAME_M30)
 
 # Display the data
-print(df)
+print("First 100 rows:\n")
+print(df.head(100))
+print("\nLast 100 rows:\n")
+print(df.tail(100))
 
 # Put where you want to save the database
-save_path = input("Write the path to store the file if you want to (if not, just press enter):")
+save_path = input("Write the path to save csv file to (or click enter if not saving): ")
 
 # Save the database if you had put a path
 if len(save_path)>0:
