@@ -47,7 +47,9 @@ class RsiSma:
         condition_2_buy = self.data[f"RSI"] > self.data["RSI_retarded"]
         condition_2_sell = self.data[f"RSI"] < self.data["RSI_retarded"]
 
+        #If fast sma is below slow sma AND rsi is higher than the previous rsi, create a buy signal
         self.data.loc[condition_1_buy & condition_2_buy, "signal"] = 1
+        #If fast sma is above slow sma AND rsi is lower than the previous rsi, create a sell signal
         self.data.loc[condition_1_sell & condition_2_sell, "signal"] = -1
 
     def get_entry_signal(self, time):
@@ -56,7 +58,7 @@ class RsiSma:
         :param time: TimeStamp of the row
         :return: Entry signal of the row and entry time
         """
-        # If we are in the first or second columns, we do nothing
+        # If we are in the first or second columns, we do nothing (since we index by -2 in the following lines)
         if len(self.data.loc[:time]) < 2:
             return 0, self.entry_time
 
@@ -73,7 +75,7 @@ class RsiSma:
             self.open_buy_price = self.data.loc[time]["open"]
             self.entry_time = time
 
-        # Enter in buy position only if we want to, and we aren't already
+        # Enter in sell position only if we want to, and we aren't already
         elif entry_signal == -1 and not self.sell and not self.buy:
             self.sell = True
             self.open_sell_price = self.data.loc[time]["open"]

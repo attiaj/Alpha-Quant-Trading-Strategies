@@ -48,12 +48,12 @@ def find_timestamp_extremum(df, df_lower_timeframe):
 
 from pathlib import Path
 DATA_DIR = Path(__file__).resolve().parent
-df_low_tf = pd.read_csv(DATA_DIR/"FixTimeBars/AUDUSD_30M_Admiral.csv", index_col="time", parse_dates=True)
-df_high_tf = pd.read_csv(DATA_DIR/"FixTimeBars/AUDUSD_4H_Admiral.csv", index_col="time", parse_dates=True)
+df_low_tf = pd.read_csv(DATA_DIR/"FixTimeBars/GBPUSD_30M_Demo.csv", index_col="time", parse_dates=True)
+df_high_tf = pd.read_csv(DATA_DIR/"FixTimeBars/GBPUSD_4H_Demo.csv", index_col="time", parse_dates=True)
 
 df = find_timestamp_extremum(df_high_tf, df_low_tf)
 
 print(df[["high_time", "low_time"]])
-df.to_csv(DATA_DIR/"FixTimeBars/AUDUSD_4H_Admiral_READY.csv")
+df.to_csv(DATA_DIR/"FixTimeBars/GBPUSD_4H_Demo_READY.csv")
 
 
