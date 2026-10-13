@@ -20,7 +20,8 @@ def find_timestamp_extremum(df, df_lower_timeframe):
         # Extract values from the lowest timeframe dataframe
         start = df.iloc[i:i + 1].index[0]
         end = df.iloc[i + 1:i + 2].index[0]
-        row_lowest_timeframe = df_lower_timeframe.loc[start:end].iloc[:-1]
+        row_lowest_timeframe = df_lower_timeframe.loc[start:end]
+        row_lowest_timeframe = row_lowest_timeframe[row_lowest_timeframe.index < end]
 
         # Extract Timestamp of the max and min over the period (highest timeframe)
         try:
