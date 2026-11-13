@@ -3,10 +3,11 @@
 Systematic rule search and validation for the Alpha Quant project.
 Steven Ghabyous, Fall 2026.
 
-**Everything in this folder is new. Nothing outside it was modified.**
-`Quantreo/` and the existing `Launching*/`, `Strategies/` and `Data/` files are
-untouched. The scripts read `../Data/FixTimeBars/*.csv` and `../Quantreo/`, and
-write only into `Stevens_Strategy/results/`.
+**Everything in this folder was new when it was added, and nothing outside it
+was modified at that point.** The scripts read `../Data/FixTimeBars/*.csv` and
+`../Quantreo/`, and write only into `Stevens_Strategy/results/`. Two bugs found
+during the work have since been fixed in `Quantreo/` and `Strategies/`; see
+Notes for the team.
 
 ---
 
@@ -112,25 +113,59 @@ python SG_pull_jpy.py                       # the JPY pairs, needs MT5
 
 ## Notes for the team
 
-Four things found in the shared code while building this. Not fixed here, since
-nothing outside this folder was modified.
+Four things found in the shared code while building this. They were not fixed at
+the time, since nothing outside this folder was modified. Items 1 and 2 were
+genuine bugs and have since been fixed in `Quantreo/` and `Strategies/`. Items 3
+and 4 are design choices and are unchanged.
 
-1. `Quantreo/DataPreprocessing.py`, `previous_ret` computes
-   `(close.shift(n) - close) / close`. The sign is inverted, so a positive value
-   means price **fell**. Anyone using this feature has its direction backwards.
-2. `Quantreo/LiveTradingSignal.py` line 92, the sell condition in
-   `li_2023_02_Ichimoku_1` reads `(BASE < CONVERSION)`, the same geometry as its
-   buy condition. It should be `CONVERSION < BASE`.
+### Fixed
+
+1. `Quantreo/DataPreprocessing.py`, `previous_ret` computed
+   `(close.shift(n) - close) / close`. The sign was inverted, so a positive value
+   meant price **fell**, and the denominator was the current price rather than
+   the base, making the result `-r / (1 + r)` instead of `r`. It now computes
+   `(close - close.shift(n)) / close.shift(n)`.
+
+   This changes one candidate in this folder. `20_return_reversion_raw` was
+   written against the old flipped convention, as its `mechanism` note records,
+   so under the corrected feature its long side buys strength rather than
+   weakness and the rule now tests momentum rather than reversion. Re-running the
+   search will not reproduce the published row for that candidate until its two
+   comparison operators are swapped. The other 19 candidates do not use
+   `previous_ret` and are unaffected.
+2. The sell condition in `li_2023_02_Ichimoku_1` read `(BASE < CONVERSION)`, the
+   same geometry as its buy condition, and should have been `CONVERSION < BASE`.
+   The bug was in two places rather than one, `Quantreo/LiveTradingSignal.py`
+   line 92 and `Strategies/LI_2023_02_Ichimoku_1.py` line 41, so it affected
+   backtests as well as live signals. Both are fixed.
+
+   The effect was larger than a short leg that never fires. The old condition
+   describes a bullish-continuation state that holds on most bars, so on the
+   12,516-bar AUDUSD 4H file it produced 2,788 short entries against 64 longs.
+   The corrected version produces 64 of each. Any previously published
+   `LI_2023_02_Ichimoku_1` result was generated with roughly 44 times too many
+   shorts and should be regenerated.
+
+### Unchanged
+
 3. The optimisation criterion `return + 2 * drawdown` is not scale-invariant and
-   penalises short test windows. It inverted rankings during this project.
+   penalises short test windows. It inverted rankings during this project. Left
+   alone because it is a metric choice rather than an error, and changing it
+   would rescore every strategy in the repo.
 4. The walk-forward recomputes features inside each slice, so every indicator
    burns its full lookback at the start of every window. At 4H with 857-bar test
    windows, a candidate using a 500-period moving average keeps about 357 usable
-   bars. Long-lookback candidates in the screen were handicapped by this.
+   bars. Long-lookback candidates in the screen were handicapped by this. Left
+   alone for the same reason.
 
-Two unit traps worth knowing:
+Two unit traps worth knowing, both still present:
 
 - `Backtest.get_ret_dd()` returns **percent**; `Backtest.data["returns"].sum()`
-  returns a **fraction**. Comparing them needs a division by 100.
+  returns a **fraction**. Comparing them needs a division by 100. The same method
+  also returns drawdown as a negative number, while `display_metrics` prints it
+  positive.
 - `WFO.df_results["criterion"]` is raw out-of-sample. `WFO.smooth_result["criterion"]`
-  is smoothed **training** data. They are not interchangeable.
+  is not: `get_smoother_result` runs before the out-of-sample value is written
+  back, so that column is an exponentially weighted mix of earlier folds'
+  out-of-sample criteria with the current fold's **training** criterion. They are
+  not interchangeable.

@@ -38,7 +38,7 @@ class Ichimoku_1:
         condition_1_sell = self.data["SPAN_A"] < self.data["SPAN_B"]
 
         condition_2_buy = (self.data["CONVERSION"].shift(1) < self.data["BASE"].shift(1)) & (self.data["BASE"] < self.data["CONVERSION"])
-        condition_2_sell = (self.data["CONVERSION"].shift(1) > self.data["BASE"].shift(1)) & (self.data["BASE"] < self.data["CONVERSION"])
+        condition_2_sell = (self.data["CONVERSION"].shift(1) > self.data["BASE"].shift(1)) & (self.data["CONVERSION"] < self.data["BASE"])
 
         self.data.loc[condition_1_buy & condition_2_buy, "signal"] = 1
         self.data.loc[condition_1_sell & condition_2_sell, "signal"] = -1

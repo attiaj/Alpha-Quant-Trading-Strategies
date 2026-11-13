@@ -89,7 +89,7 @@ def li_2023_02_Ichimoku_1(symbol, timeframe, ichi_window_1, ichi_window_2):
     condition_1_sell = df["SPAN_A"].iloc[-1] < df["SPAN_B"].iloc[-1]
 
     condition_2_buy = (df["CONVERSION"].shift(1).iloc[-1] < df["BASE"].shift(1).iloc[-1]) & (df["BASE"].iloc[-1] < df["CONVERSION"].iloc[-1])
-    condition_2_sell = (df["CONVERSION"].shift(1).iloc[-1] > df["BASE"].shift(1).iloc[-1]) & (df["BASE"].iloc[-1] < df["CONVERSION"].iloc[-1])
+    condition_2_sell = (df["CONVERSION"].shift(1).iloc[-1] > df["BASE"].shift(1).iloc[-1]) & (df["CONVERSION"].iloc[-1] < df["BASE"].iloc[-1])
 
     buy = condition_1_buy & condition_2_buy
     sell = condition_1_sell & condition_2_sell

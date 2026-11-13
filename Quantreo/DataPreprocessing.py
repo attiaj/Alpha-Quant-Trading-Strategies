@@ -48,7 +48,7 @@ def ichimoku(df,n1,n2):
     return df
 
 def previous_ret(df,col,n):
-    df["previous_ret"] = (df[col].shift(int(n)) - df[col]) / df[col]
+    df["previous_ret"] = (df[col] - df[col].shift(int(n))) / df[col].shift(int(n))
     return df
 
 
