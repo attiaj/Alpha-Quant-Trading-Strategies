@@ -1,0 +1,92 @@
+# Bollinger SMA ATR
+
+A trend-filtered mean-reversion strategy for the Alpha Quant project.
+
+13 November 2026. Class: `BollingerSmaAtr`. File: `Strategies/BollingerSmaAtr.py`.
+
+This note describes the strategy as it is written. It trades a short-term stretch back toward the mean, and only in the direction of a slower trend. It uses the same entry and exit methods as the course strategies, so `Quantreo.Backtest` can run it without a different engine.
+
+## The idea
+
+A slow simple moving average says whether the larger move is up or down. Bollinger Bands mark when the last few closes have stretched away from their own average. The strategy does not fade every touch of a band. It waits for price to step back inside the band, and it ignores that step when it fights the slow average.
+
+- Longs are allowed only while the close is above the slow average.
+- Shorts are allowed only while the close is below the slow average.
+- A long needs the previous close under the lower band and the current close back above it.
+- A short needs the previous close over the upper band and the current close back under it.
+- Take-profit and stop-loss are set from the previous bar's average true range, so the distance is known at the open.
+
+## Indicators
+
+All three indicators come from `Quantreo.DataPreprocessing`, which wraps the `ta` library. `sma` writes `SMA_n`. `bollinger` writes `BB_MID_n`, `BB_UPPER_n`, and `BB_LOWER_n`. `atr` writes `ATR` from high, low, and close. The band width argument is cast to an integer inside `bollinger`, so `bb_dev` should be a whole number such as 2.
+
+The stop distance uses ATR shifted by one bar. On the bar where a trade opens, the level is open plus or minus `atr_mult` times that previous ATR. `TP_pct` is that distance divided by the open. `SL_pct` is the same distance with a minus sign. Both percents are stored on the row and read again if a trade is opened there.
+
+## Signal
+
+On each closed bar the class sets `signal` to 1, -1, or 0.
+
+A bar is a long signal when both of these are true:
+
+- close is above SMA of length `slow_sma`.
+- the previous close was below the previous lower band, and this close is above the current lower band.
+
+A bar is a short signal when both of these are true:
+
+- close is below the same SMA.
+- the previous close was above the previous upper band, and this close is below the current upper band.
+
+Anything else is 0, including a band reclaim that disagrees with the SMA. The class holds one position at a time. A new signal is ignored while a trade is already open.
+
+## Entry
+
+The backtest calls `get_entry_signal` once per bar. The class reads the signal from the previous closed bar and, if it is allowed to trade, fills at this bar's open. That is the same one-bar delay used by the course strategies: the signal bar must be finished before the order is placed. The first two rows never trade, because the lookup needs a prior bar.
+
+At the fill, the class stores the open price, the entry time, and the `TP_pct` and `SL_pct` of that bar. Those two percents stay fixed until the trade closes.
+
+## Exit
+
+`get_exit_signal` checks the current bar's high and low against the stored percents. For a long, the favorable move is `(high - entry) / entry` and the adverse move is `(low - entry) / entry`. For a short, both moves are signed the other way, so a drop in price is a positive result and a rally is a negative one.
+
+- If only the take-profit is touched, the trade closes at `TP_pct`.
+- If only the stop is touched, the trade closes at `SL_pct`, which is negative.
+- If both are touched on the same bar, `high_time` and `low_time` decide which extreme printed first.
+- If those two timestamps are equal, the trade is closed at a return of 0.
+
+The recorded return is `(exit percent - cost) * leverage`. With the starting values, cost is 0.0001 and leverage is 5, so a take-profit of 0.4 percent becomes `(0.004 - 0.0001) * 5 = 0.0195`, about 1.95 percent on the account for that trade. The position is then flat, and a later bar can open a new one.
+
+`high_time` and `low_time` are not computed inside the strategy. They have to be on the data frame already. In this project they are built by comparing a lower timeframe, usually 5-minute bars, inside each higher-timeframe bar. A READY file such as `GBPUSD_4H_Demo_READY.csv` is the expected input. Columns used are open, high, low, close, `high_time`, and `low_time`.
+
+## Starting parameters
+
+These are a starting point for a 4-hour chart. They have not been chosen by walk-forward optimization.
+
+| Parameter | Role | Value |
+| --- | --- | --- |
+| `bb_period` | Bollinger window, in bars | 20 |
+| `bb_dev` | Band width, in standard deviations | 2 |
+| `slow_sma` | Trend filter, in bars | 50 |
+| `atr_period` | ATR window, in bars | 14 |
+| `atr_mult` | Take-profit and stop, in ATRs | 2.0 |
+| `cost` | Cost subtracted from each exit | 0.0001 |
+| `leverage` | Multiplier on the percent return | 5 |
+
+## How it plugs into the backtest
+
+`Quantreo.Backtest` constructs the class with the price frame and the parameter dictionary, then walks every timestamp. On each bar it asks for an entry, then an exit. A non-zero exit is stored in the returns column, and the duration is the exit time minus the entry time, in seconds. Walk-forward code can pass the same class because the constructor signature matches the course strategies and `output_dictionary` keeps a copy of the parameters.
+
+```python
+bt = Backtest(df, BollingerSmaAtr, params)
+bt.run()
+```
+
+## Limits
+
+- The rules describe one closed bar at a time. A bar that is still forming is not a signal.
+- Both bands and the SMA need a warm-up. Early rows stay flat while those values are missing.
+- If `high_time` or `low_time` is missing, a bar that hits both the target and the stop cannot be resolved.
+- `bb_dev` is effectively an integer, because the shared `bollinger` function casts it with `int`.
+- `cost` is a fixed fraction of price. It is not a live spread, swap, or commission schedule.
+- One position only. The class does not scale in, hedge, or reverse on the same bar.
+
+Use the class to study the rules inside the existing backtest. Change the parameters only after a walk-forward test on a longer READY file, and treat every result as a description of that sample.
